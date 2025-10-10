@@ -15,8 +15,13 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "form-data": "^4.0.4",
+    "googleapis": "^162.0.0",
+    "node-fetch": "^2.7.0",
     "nodemailer": "^7.0.9",
-    "twilio": "^5.9.0"
+    "resend": "^6.1.2",
+    "twilio": "^5.9.0",
+    "web-streams-polyfill": "^3.3.3"
   },
   "description": "��#\u0000 \u0000q\u0000r\u0000b\u0000a\u0000c\u0000k\u0000e\u0000n\u0000d\u0000\r\u0000 \u0000",
   "repository": {
