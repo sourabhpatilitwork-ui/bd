@@ -166,110 +166,187 @@ global.WritableStream = WritableStream;
 
 
 
-// ===== Load environment variables =====
+// // ===== Load environment variables =====
+// require("dotenv").config();
+// const express = require("express");
+// const cors = require("cors");
+// const { google } = require("googleapis");
+// const nodemailer = require("nodemailer");
+
+// const app = express();
+// const PORT = process.env.PORT || 3000;
+
+// app.use(cors());
+// app.use(express.json());
+
+// console.log("🚀 Starting Gmail API mail server...");
+
+// // ✅ Gmail Email Sender Function (Promise-based)
+// function sendEmail(to, subject, text) {
+//   return new Promise((resolve, reject) => {
+//     const oAuth2Client = new google.auth.OAuth2(
+//       process.env.GMAIL_CLIENT_ID,
+//       process.env.GMAIL_CLIENT_SECRET,
+//       process.env.GMAIL_REDIRECT_URI
+//     );
+
+//     oAuth2Client.setCredentials({
+//       refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+//     });
+
+//     oAuth2Client
+//       .getAccessToken()
+//       .then((accessTokenResponse) => {
+//         const accessToken =
+//           typeof accessTokenResponse === "string"
+//             ? accessTokenResponse
+//             : accessTokenResponse?.token || null;
+
+//         const transporter = nodemailer.createTransport({
+//           service: "gmail",
+//           auth: {
+//             type: "OAuth2",
+//             user: process.env.GMAIL_USER,
+//             clientId: process.env.GMAIL_CLIENT_ID,
+//             clientSecret: process.env.GMAIL_CLIENT_SECRET,
+//             refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+//             accessToken: accessToken,
+//           },
+//         });
+
+//         const mailOptions = {
+//           from: `Your App <${process.env.GMAIL_USER}>`,
+//           to,
+//           subject,
+//           text,
+//         };
+
+//         transporter.sendMail(mailOptions, (err, info) => {
+//           if (err) {
+//             console.error("❌ Email send failed:", err.message);
+//             reject(err);
+//           } else {
+//             console.log("✅ Email sent:", info.messageId);
+//             resolve(info);
+//           }
+//         });
+//       })
+//       .catch((err) => {
+//         console.error("❌ Error getting access token:", err.message);
+//         reject(err);
+//       });
+//   });
+// }
+
+// // ✅ API Route for Sending Email
+// app.post("/send-email", (req, res) => {
+//   const { to, subject, text } = req.body;
+
+//   if (!to || !subject || !text) {
+//     return res
+//       .status(400)
+//       .json({ success: false, error: "Missing required fields" });
+//   }
+
+//   sendEmail(to, subject, text)
+//     .then((result) => {
+//       res.json({ success: true, messageId: result.messageId });
+//     })
+//     .catch((error) => {
+//       res.status(500).json({ success: false, error: error.message });
+//     });
+// });
+
+// // ✅ Root Test Route
+// app.get("/", (req, res) => {
+//   res.send("📧 Gmail API email server running 🚀 (Node 16 compatible version)");
+// });
+
+// // ✅ Error Handling
+// process.on("unhandledRejection", (reason) => {
+//   console.error("UNHANDLED REJECTION:", reason);
+// });
+// process.on("uncaughtException", (err) => {
+//   console.error("UNCAUGHT EXCEPTION:", err);
+// });
+
+// app.listen(PORT, () =>
+//   console.log(`✅ Server running and listening on http://localhost:${PORT}`)
+// );
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const { google } = require("googleapis");
-const nodemailer = require("nodemailer");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
 app.use(cors());
 app.use(express.json());
 
-console.log("🚀 Starting Gmail API mail server...");
+const PORT = process.env.PORT || 3000;
 
-// ✅ Gmail Email Sender Function (Promise-based)
-function sendEmail(to, subject, text) {
-  return new Promise((resolve, reject) => {
-    const oAuth2Client = new google.auth.OAuth2(
-      process.env.GMAIL_CLIENT_ID,
-      process.env.GMAIL_CLIENT_SECRET,
-      process.env.GMAIL_REDIRECT_URI
-    );
+// ===== Gmail OAuth2 setup =====
+const oAuth2Client = new google.auth.OAuth2(
+  process.env.GMAIL_CLIENT_ID,
+  process.env.GMAIL_CLIENT_SECRET,
+  process.env.GMAIL_REDIRECT_URI
+);
+oAuth2Client.setCredentials({ refresh_token: process.env.GMAIL_REFRESH_TOKEN });
 
-    oAuth2Client.setCredentials({
-      refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+// ===== Gmail API send function (no async/await) =====
+function sendEmail(to, subject, messageHtml) {
+  const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
+
+  const messageParts = [
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    "Content-Type: text/html; charset=utf-8",
+    "MIME-Version: 1.0",
+    "",
+    messageHtml,
+  ];
+  const rawMessage = messageParts.join("\n");
+  const encodedMessage = Buffer.from(rawMessage)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+  return gmail.users.messages
+    .send({
+      userId: "me",
+      requestBody: { raw: encodedMessage },
+    })
+    .then((response) => {
+      console.log("✅ Email sent via Gmail API:", response.data.id);
+      return response.data;
+    })
+    .catch((error) => {
+      console.error("❌ Gmail API send failed:", error.message);
+      throw error;
     });
-
-    oAuth2Client
-      .getAccessToken()
-      .then((accessTokenResponse) => {
-        const accessToken =
-          typeof accessTokenResponse === "string"
-            ? accessTokenResponse
-            : accessTokenResponse?.token || null;
-
-        const transporter = nodemailer.createTransport({
-          service: "gmail",
-          auth: {
-            type: "OAuth2",
-            user: process.env.GMAIL_USER,
-            clientId: process.env.GMAIL_CLIENT_ID,
-            clientSecret: process.env.GMAIL_CLIENT_SECRET,
-            refreshToken: process.env.GMAIL_REFRESH_TOKEN,
-            accessToken: accessToken,
-          },
-        });
-
-        const mailOptions = {
-          from: `Your App <${process.env.GMAIL_USER}>`,
-          to,
-          subject,
-          text,
-        };
-
-        transporter.sendMail(mailOptions, (err, info) => {
-          if (err) {
-            console.error("❌ Email send failed:", err.message);
-            reject(err);
-          } else {
-            console.log("✅ Email sent:", info.messageId);
-            resolve(info);
-          }
-        });
-      })
-      .catch((err) => {
-        console.error("❌ Error getting access token:", err.message);
-        reject(err);
-      });
-  });
 }
 
-// ✅ API Route for Sending Email
+// ===== API route =====
 app.post("/send-email", (req, res) => {
-  const { to, subject, text } = req.body;
+  const { to, subject, html } = req.body;
 
-  if (!to || !subject || !text) {
-    return res
-      .status(400)
-      .json({ success: false, error: "Missing required fields" });
+  if (!to || !subject || !html) {
+    return res.status(400).json({ success: false, error: "Missing fields" });
   }
 
-  sendEmail(to, subject, text)
+  sendEmail(to, subject, html)
     .then((result) => {
-      res.json({ success: true, messageId: result.messageId });
+      res.json({ success: true, messageId: result.id });
     })
     .catch((error) => {
       res.status(500).json({ success: false, error: error.message });
     });
 });
 
-// ✅ Root Test Route
-app.get("/", (req, res) => {
-  res.send("📧 Gmail API email server running 🚀 (Node 16 compatible version)");
+app.get("/", (req, res) => res.send("📧 Gmail API email server running 🚀"));
+
+app.listen(PORT, function () {
+  console.log(`✅ Server live on port ${PORT}`);
 });
 
-// ✅ Error Handling
-process.on("unhandledRejection", (reason) => {
-  console.error("UNHANDLED REJECTION:", reason);
-});
-process.on("uncaughtException", (err) => {
-  console.error("UNCAUGHT EXCEPTION:", err);
-});
-
-app.listen(PORT, () =>
-  console.log(`✅ Server running and listening on http://localhost:${PORT}`)
-);
